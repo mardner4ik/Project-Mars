@@ -15,5 +15,5 @@ A Python-based space exploration project.
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com
+   git clone https://github.com/mardner4ik/Project-Mars.git
    cd Project-Mars
