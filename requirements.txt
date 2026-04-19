@@ -1,0 +1,4 @@
+pygame
+taichi
+PyOpenGL
+PyOpenGL_accelerate
