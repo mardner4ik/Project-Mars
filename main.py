@@ -7,6 +7,8 @@ from src.states import MenuState
 from pygame import *
 from tkinter import messagebox
 
+import webview
+
 WIDTH, HEIGHT = 1280, 700
 FPS = 60
 BG_COLOR = (60, 30, 155)
@@ -34,8 +36,8 @@ class Window:
         print(f"Active driver: {self.driver}, Platform: {self.platform}")
 
     def _init_states(self):
-        menu_state = MenuState(self.state_manager)
-        self.state_manager.add_state("menu", menu_state)
+        self.state_manager.add_state("menu", MenuState(self.state_manager))
+        #self.state_manager.add_state("saves", SavesState(self.state_manager))
         self.state_manager.set_state("menu")
 
     def handle_events(self):

@@ -1,5 +1,6 @@
 import os
 from pygame import *
+from pygame import scrap
 
 init()
 
@@ -181,15 +182,308 @@ class Button(UIElement):
         if not self.visible: return
         self._render_shape()
         
-        text_surf = self.font.render(self.text, True, self.text_color)
-        
         if self.text_scaled:
-            tw, th = text_surf.get_size()
-            ratio = min(self.rect.width / tw, self.rect.height / th)
-            new_size = (int(tw * ratio), int(th * ratio))
-            text_surf = transform.smoothscale(text_surf, new_size)
+            target_h = int(self.rect.height * 0.8)
+            temp_font = get_font(self.font_name, target_h)
+            text_surf = temp_font.render(self.text, True, self.text_color)
+            if text_surf.get_width() > self.rect.width * 0.9:
+                target_h = int(target_h * (self.rect.width * 0.9 / text_surf.get_width()))
+                temp_font = get_font(self.font_name, max(1, target_h))
+                text_surf = temp_font.render(self.text, True, self.text_color)
+        else:
+            text_surf = self.font.render(self.text, True, self.text_color)
             
         text_surf.set_alpha(self.text_alpha)
         text_rect = text_surf.get_rect(center=(self.rect.width // 2, self.rect.height // 2))
         self.surface.blit(text_surf, text_rect)
         screen.blit(self.surface, self.rect.topleft)
+
+class InputArea(UIElement):
+    def __init__(self, x, y, width, height, font_size=24, font_name=None, **kwargs):
+        self.bg_alpha = kwargs.pop('bg_alpha', 255)
+        self.text_color = kwargs.pop('text_color', (0, 0, 0))
+        self.placeholder_text = kwargs.pop('placeholder_text', '')
+        self.placeholder_text_color = kwargs.pop('placeholder_text_color', (150, 150, 150))
+        self.password_char = kwargs.pop('password_char', None)
+        self.max_length = kwargs.pop('max_length', None)
+        self.border_color = kwargs.pop('border_color', (200, 200, 200))
+        self.focused_border_color = kwargs.pop('focused_border_color', (0, 120, 255))
+        self.border_width = kwargs.pop('border_width', 2)
+        self.selection_color = kwargs.pop('selection_color', (0, 120, 255, 100))
+        self.cursor_color = kwargs.pop('cursor_color', (0, 0, 0))
+        
+        super().__init__(x, y, width, height, alpha=self.bg_alpha, **kwargs)
+        
+        self.font_name = font_name
+        self.font_size = font_size
+        self.font = get_font(font_name, font_size)
+        
+        self.text = ""
+        self.is_focused = False
+        self.cursor_pos = 0
+        self.selection_start = 0
+        self.scroll_x = 0
+        
+        self.cursor_visible = True
+        self.last_blink = time.get_ticks()
+        self.is_hovered = False
+        self.is_dragging = False
+        self.padding_x = 8
+        
+        try:
+            scrap.init()
+        except:
+            pass
+
+    def _get_display_text(self):
+        if self.password_char:
+            return self.password_char * len(self.text)
+        return self.text
+
+    def _get_index_from_mouse(self, mouse_pos):
+        rel_x = mouse_pos[0] - self.rect.x - self.padding_x + self.scroll_x
+        disp = self._get_display_text()
+        for i in range(len(disp) + 1):
+            w = self.font.size(disp[:i])[0]
+            if w > rel_x:
+                if i > 0 and rel_x < (self.font.size(disp[:i-1])[0] + w) / 2:
+                    return i - 1
+                return i
+        return len(disp)
+
+    def _adjust_scroll(self):
+        disp = self._get_display_text()
+        cursor_x = self.font.size(disp[:self.cursor_pos])[0]
+        max_scroll = max(0, self.font.size(disp)[0] - (self.rect.width - 2 * self.padding_x))
+        if cursor_x - self.scroll_x < 0:
+            self.scroll_x = max(0, cursor_x - 10)
+        elif cursor_x - self.scroll_x > self.rect.width - 2 * self.padding_x:
+            self.scroll_x = min(max_scroll, cursor_x - self.rect.width + 2 * self.padding_x + 10)
+        self.scroll_x = max(0, min(self.scroll_x, max_scroll))
+
+    def _delete_selection(self):
+        start = min(self.selection_start, self.cursor_pos)
+        end = max(self.selection_start, self.cursor_pos)
+        self.text = self.text[:start] + self.text[end:]
+        self.cursor_pos = start
+        self.selection_start = start
+
+    def _insert_text(self, string):
+        if self.selection_start != self.cursor_pos:
+            self._delete_selection()
+        if self.max_length and len(self.text) + len(string) > self.max_length:
+            string = string[:self.max_length - len(self.text)]
+        self.text = self.text[:self.cursor_pos] + string + self.text[self.cursor_pos:]
+        self.cursor_pos += len(string)
+        self.selection_start = self.cursor_pos
+
+    def _copy(self):
+        if self.selection_start != self.cursor_pos:
+            start = min(self.selection_start, self.cursor_pos)
+            end = max(self.selection_start, self.cursor_pos)
+            try:
+                scrap.init()
+                scrap.put(SCRAP_TEXT, self.text[start:end].encode('utf-8'))
+            except:
+                pass
+
+    def _cut(self):
+        self._copy()
+        self._delete_selection()
+
+    def _paste(self):
+        try:
+            scrap.init()
+            t = scrap.get(SCRAP_TEXT).decode('utf-8').strip('\x00')
+            self._insert_text(t)
+        except:
+            pass
+
+    def update(self):
+        if not self.visible:
+            self.is_hovered = False
+            return
+            
+        mouse_pos = mouse.get_pos()
+        was_hovered = self.is_hovered
+        self.is_hovered = self.rect.collidepoint(mouse_pos)
+        
+        if self.is_hovered:
+            mouse.set_cursor(CURSORS["ibeam"])
+        elif was_hovered and not self.is_hovered:
+            mouse.set_cursor(CURSORS["arrow"])
+            
+        if self.is_focused:
+            if time.get_ticks() - self.last_blink > 500:
+                self.cursor_visible = not self.cursor_visible
+                self.last_blink = time.get_ticks()
+        else:
+            self.cursor_visible = False
+
+    def handle_event(self, event):
+        if not self.visible: return
+        
+        if event.type == MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.is_hovered:
+                    self.is_focused = True
+                    key.set_repeat(300, 50)
+                    self.cursor_pos = self._get_index_from_mouse(event.pos)
+                    self.selection_start = self.cursor_pos
+                    self.is_dragging = True
+                    self.cursor_visible = True
+                    self.last_blink = time.get_ticks()
+                else:
+                    self.is_focused = False
+                    self.selection_start = self.cursor_pos
+                    
+        elif event.type == MOUSEBUTTONUP:
+            if event.button == 1:
+                self.is_dragging = False
+                
+        elif event.type == MOUSEMOTION:
+            if self.is_dragging:
+                self.cursor_pos = self._get_index_from_mouse(event.pos)
+                self.cursor_visible = True
+                self.last_blink = time.get_ticks()
+                self._adjust_scroll()
+                
+        elif event.type == KEYDOWN and self.is_focused:
+            ctrl = key.get_mods() & KMOD_CTRL
+            shift = key.get_mods() & KMOD_SHIFT
+            
+            if ctrl:
+                if event.key == K_a:
+                    self.selection_start = 0
+                    self.cursor_pos = len(self.text)
+                elif event.key == K_c:
+                    self._copy()
+                elif event.key == K_x:
+                    self._cut()
+                elif event.key == K_v:
+                    self._paste()
+            else:
+                if event.key == K_LEFT:
+                    if shift:
+                        self.cursor_pos = max(0, self.cursor_pos - 1)
+                    else:
+                        if self.selection_start != self.cursor_pos:
+                            self.cursor_pos = min(self.selection_start, self.cursor_pos)
+                            self.selection_start = self.cursor_pos
+                        else:
+                            self.cursor_pos = max(0, self.cursor_pos - 1)
+                            self.selection_start = self.cursor_pos
+                elif event.key == K_RIGHT:
+                    if shift:
+                        self.cursor_pos = min(len(self.text), self.cursor_pos + 1)
+                    else:
+                        if self.selection_start != self.cursor_pos:
+                            self.cursor_pos = max(self.selection_start, self.cursor_pos)
+                            self.selection_start = self.cursor_pos
+                        else:
+                            self.cursor_pos = min(len(self.text), self.cursor_pos + 1)
+                            self.selection_start = self.cursor_pos
+                elif event.key == K_HOME:
+                    self.cursor_pos = 0
+                    if not shift: self.selection_start = 0
+                elif event.key == K_END:
+                    self.cursor_pos = len(self.text)
+                    if not shift: self.selection_start = self.cursor_pos
+                elif event.key == K_BACKSPACE:
+                    if self.selection_start != self.cursor_pos:
+                        self._delete_selection()
+                    elif self.cursor_pos > 0:
+                        self.text = self.text[:self.cursor_pos-1] + self.text[self.cursor_pos:]
+                        self.cursor_pos -= 1
+                        self.selection_start = self.cursor_pos
+                elif event.key == K_DELETE:
+                    if self.selection_start != self.cursor_pos:
+                        self._delete_selection()
+                    elif self.cursor_pos < len(self.text):
+                        self.text = self.text[:self.cursor_pos] + self.text[self.cursor_pos+1:]
+                elif event.key == K_RETURN or event.key == K_KP_ENTER:
+                    pass
+                else:
+                    if event.unicode and ord(event.unicode) >= 32:
+                        self._insert_text(event.unicode)
+            
+            self.last_blink = time.get_ticks()
+            self.cursor_visible = True
+            self._adjust_scroll()
+
+    def draw(self, screen):
+        if not self.visible: return
+        self._render_shape()
+        
+        inner_rect = Rect(self.padding_x, 0, self.rect.width - 2 * self.padding_x, self.rect.height)
+        inner_surf = Surface(inner_rect.size, SRCALPHA)
+        
+        disp_text = self._get_display_text()
+        
+        if not disp_text and not self.is_focused:
+            p_surf = self.font.render(self.placeholder_text, True, self.placeholder_text_color)
+            inner_surf.blit(p_surf, (-self.scroll_x, (self.rect.height - p_surf.get_height()) // 2))
+        else:
+            if self.selection_start != self.cursor_pos:
+                start = min(self.selection_start, self.cursor_pos)
+                end = max(self.selection_start, self.cursor_pos)
+                x1 = self.font.size(disp_text[:start])[0] - self.scroll_x
+                x2 = self.font.size(disp_text[:end])[0] - self.scroll_x
+                draw.rect(inner_surf, self.selection_color, (x1, 0, x2 - x1, self.rect.height))
+            
+            t_surf = self.font.render(disp_text, True, self.text_color)
+            inner_surf.blit(t_surf, (-self.scroll_x, (self.rect.height - t_surf.get_height()) // 2))
+            
+            if self.is_focused and self.cursor_visible:
+                cx = self.font.size(disp_text[:self.cursor_pos])[0] - self.scroll_x
+                draw.line(inner_surf, self.cursor_color, (cx, 4), (cx, self.rect.height - 4), 2)
+                
+        if self.is_focused:
+            draw.rect(self.surface, self.focused_border_color, (0, 0, self.rect.width, self.rect.height), self.border_width, self.border_radius)
+        elif self.border_width > 0:
+            draw.rect(self.surface, self.border_color, (0, 0, self.rect.width, self.rect.height), self.border_width, self.border_radius)
+            
+        self.surface.blit(inner_surf, inner_rect.topleft)
+        screen.blit(self.surface, self.rect.topleft)
+
+class ScrollingFrame(UIElement):
+    def __init__(self, x, y, width, height, **kwargs):
+        super().__init__(x, y, width, height, **kwargs)
+        self.elements = []
+        self.scroll_y = 0
+        self.content_height = height
+        
+    def add_element(self, element):
+        element.base_y = element.y
+        element.base_x = element.x
+        self.elements.append(element)
+        self.content_height = max(self.content_height, element.base_y + element.rect.height + 20)
+        
+    def update(self):
+        for el in self.elements:
+            el.y = self.rect.y + el.base_y - self.scroll_y
+            el.x = self.rect.x + el.base_x
+            el.update()
+            
+    def handle_event(self, event):
+        if not self.visible: return
+        if event.type == MOUSEWHEEL:
+            if self.rect.collidepoint(mouse.get_pos()):
+                self.scroll_y -= event.y * 30
+                max_scroll = max(0, self.content_height - self.rect.height)
+                self.scroll_y = max(0, min(self.scroll_y, max_scroll))
+        for el in self.elements:
+            if self.rect.collidepoint(mouse.get_pos()) or getattr(event, 'type', None) not in (MOUSEBUTTONDOWN, MOUSEBUTTONUP, MOUSEMOTION):
+                el.handle_event(event)
+                
+    def draw(self, screen):
+        if not self.visible: return
+        self._render_shape()
+        clip_rect = self.rect.copy()
+        old_clip = screen.get_clip()
+        screen.set_clip(clip_rect)
+        screen.blit(self.surface, self.rect.topleft)
+        for el in self.elements:
+            if el.y + el.rect.height > self.rect.y and el.y < self.rect.y + self.rect.height:
+                el.draw(screen)
+        screen.set_clip(old_clip)

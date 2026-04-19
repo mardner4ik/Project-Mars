@@ -10,8 +10,11 @@ class MenuState(State):
     def __init__(self, manager):
         super().__init__(manager)
         self.buttons = []
-        self.title = None
+        self.title_project = None
+        self.title_mars = None
         self.info = None
+        self.corp_label = None
+        self.license_label = None
         self.background_image = None
         self.background_color = (20, 10, 60)
         self.screen_width = 0
@@ -21,7 +24,6 @@ class MenuState(State):
         panel_width = max(200, int(width * 0.19))
         button_width = max(150, int(width * 0.185))
         button_height = max(40, int(height * 0.085))
-        title_font_size = max(24, int(height * 0.068))
         button_font_size = max(12, int(height * 0.025))
         info_font_size = max(10, int(height * 0.02))
         button_spacing = max(60, int(height * 0.11))
@@ -32,7 +34,6 @@ class MenuState(State):
             'panel_width': panel_width,
             'button_width': button_width,
             'button_height': button_height,
-            'title_font_size': title_font_size,
             'button_font_size': button_font_size,
             'info_font_size': info_font_size,
             'button_spacing': button_spacing,
@@ -48,16 +49,30 @@ class MenuState(State):
         self.buttons.clear()
         values = self._get_responsive_values(width, height)
         
-        self.title = Label(
-            int(width / 2) + 220, values['title_y'],
-            text='Project Mars',
-            font_size=values['title_font_size'],
+        project_size = max(18, int(height * 0.05))
+        mars_size = max(36, int(height * 0.09))
+        center_base_x = int(width / 2) + 120
+        
+        self.title_project = Label(
+            center_base_x, values['title_y'] + (mars_size - project_size) - 10,
+            text='Project',
+            font_size=project_size,
             text_color=(255, 255, 255),
             bg_color=(0, 0, 0, 0),
             font_name="exo2.ttf",
-            centered=True
+            centered=False
         )
-        
+
+        self.title_mars = Label(
+            center_base_x + self.title_project.rect.width + 10, values['title_y'],
+            text='Mars',
+            font_size=mars_size,
+            text_color=(220, 60, 30),
+            bg_color=(0, 0, 0, 0),
+            font_name="exo2.ttf",
+            centered=False
+        )
+
         info_text = f"Driver: {get_video_driver(display)} \n                                OS: {get_platform()}"
         self.info = Label(
             width - 20, height - 20,
@@ -70,6 +85,26 @@ class MenuState(State):
         )
         self.info.x = width - self.info.rect.width - 20
         self.info.y = height - self.info.rect.height - 20
+
+        self.corp_label = Label(
+            20, height - 45,
+            text='Hamix Corporation ®',
+            font_size=values['info_font_size'],
+            text_color=(255, 255, 255),
+            bg_color=(0, 0, 0, 0),
+            font_name="exo2.ttf",
+            centered=False
+        )
+
+        self.license_label = Label(
+            20, height - 25,
+            text='GNU GPL v3',
+            font_size=values['info_font_size'],
+            text_color=(255, 255, 255),
+            bg_color=(0, 0, 0, 0),
+            font_name="exo2.ttf",
+            centered=False
+        )
 
         buttons_data = [
             ("Play", self._on_play_clicked),
@@ -159,8 +194,11 @@ class MenuState(State):
         panel_surface.fill(((10, 10, 10, 10)))
         screen.blit(panel_surface, (0, 0))
         
-        self.title.draw(screen)
-        self.info.draw(screen)
+        self.title_project.draw(screen)
+        self.title_mars.draw(screen)
+        #self.info.draw(screen)
+        self.corp_label.draw(screen)
+        self.license_label.draw(screen)
         
         for btn in self.buttons:
             btn.draw(screen)
