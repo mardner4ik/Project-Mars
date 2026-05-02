@@ -1,4 +1,5 @@
-from pygame import Surface, Event
+from pygame import Surface
+from pygame.event import Event
 
 class State:
     def __init__(self, manager):

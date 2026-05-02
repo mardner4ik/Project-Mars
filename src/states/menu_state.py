@@ -1,4 +1,5 @@
-from pygame import Surface, Event, MOUSEBUTTONDOWN, draw, SRCALPHA, Rect, transform, display
+from pygame import Surface, MOUSEBUTTONDOWN, draw, SRCALPHA, Rect, transform, display
+from pygame.event import Event
 from src.core.state import State
 from src.utils.ui import Button, Label
 from src.utils.image_manager import image_manager
@@ -87,8 +88,8 @@ class MenuState(State):
         self.info.y = height - self.info.rect.height - 20
 
         self.corp_label = Label(
-            20, height - 45,
-            text='Hamix Corporation ®',
+            20, height - 60,
+            text='By Hamix Foundation®',
             font_size=values['info_font_size'],
             text_color=(255, 255, 255),
             bg_color=(0, 0, 0, 0),
@@ -97,8 +98,8 @@ class MenuState(State):
         )
 
         self.license_label = Label(
-            20, height - 25,
-            text='GNU GPL v3',
+            20, height - 45,
+            text='GNU GPL v3 License. Copyright © 2007 Free Software Foundation, Inc. <https://fsf.org/>',
             font_size=values['info_font_size'],
             text_color=(255, 255, 255),
             bg_color=(0, 0, 0, 0),
