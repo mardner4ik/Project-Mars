@@ -3,7 +3,7 @@
 A Python-based space exploration project.
 
 ## 📸 Screenshots
-![Main Menu](https://github.com/mardner4ik/Project-Mars/blob/main/src/screenshots/main_menu.png?raw=true)
+![Main Menu](https://github.com/mardner4ik/Project-Mars/blob/main/src/screenshots/main_menu.jpg?raw=true)
 *Brief description of what is shown above*
 
 ## 🛠 Features
